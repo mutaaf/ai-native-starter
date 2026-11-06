@@ -5,7 +5,7 @@
   "focus": "",
   "agents": {
     "scout": { "enabled": true, "max_new_tickets_per_run": 3, "ready_queue_cap": 10 },
-    "builder": { "enabled": true, "max_merges_per_day": 8 },
+    "builder": { "enabled": true, "max_merges_per_day": 800 },
     "critic": { "enabled": true, "max_new_tickets_per_run": 3 },
     "keeper": { "enabled": true }
   },
