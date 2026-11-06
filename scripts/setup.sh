@@ -6,11 +6,14 @@ EXPIRES=$(date -u -v+90d +%F 2>/dev/null || date -u -d '+90 days' +%F)
 
 gh repo edit "$REPO" --enable-auto-merge --enable-squash-merge --delete-branch-on-merge >/dev/null
 
-if git diff --quiet origin/main -- agents/control.json 2>/dev/null && ! grep -q "\"expires\": \"$EXPIRES\"" agents/control.json; then
+# Only a repo that isn't protected yet can take this commit directly. On a re-run, leave the date alone.
+if ! gh api "repos/$REPO/branches/main/protection" >/dev/null 2>&1; then
   sed -i.bak "s/\"expires\": \"[0-9-]*\"/\"expires\": \"$EXPIRES\"/" agents/control.json && rm -f agents/control.json.bak
-  git add agents/control.json
-  git commit -qm "Agents expire on $EXPIRES"
-  git push -q origin HEAD:main
+  if ! git diff --quiet -- agents/control.json; then
+    git add agents/control.json
+    git commit -qm "Agents expire on $EXPIRES"
+    git push -q origin HEAD:main
+  fi
 fi
 
 # Needs a public repo or a paid GitHub plan. Without it the gate has nothing to hold on to.
