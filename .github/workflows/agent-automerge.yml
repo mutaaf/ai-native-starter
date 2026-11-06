@@ -1,0 +1,47 @@
+name: Agent auto-merge
+# Arms GitHub auto-merge on agent PRs so they land when required checks pass, even after the
+# agent's session ends. pull_request_target means this file and scripts/gate.sh come from main,
+# so a PR cannot edit its own guard. PR code is never checked out or run.
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  arm:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (startsWith(github.head_ref, 'scout/') || startsWith(github.head_ref, 'build/') ||
+       startsWith(github.head_ref, 'fix/') || startsWith(github.head_ref, 'keep/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      DRAFT: ${{ github.event.pull_request.draft }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Decide
+        id: gate
+        run: |
+          verdict=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename' | bash scripts/gate.sh agents/control.json "$DRAFT")
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          echo "Gate verdict: $verdict"
+      - name: Arm squash auto-merge
+        if: steps.gate.outputs.verdict == 'arm'
+        run: gh pr merge "$PR" --repo "$REPO" --auto --squash --delete-branch
+      - name: Refuse (frozen paths)
+        if: steps.gate.outputs.verdict == 'frozen'
+        run: |
+          gh pr merge "$PR" --repo "$REPO" --disable-auto || true
+          gh pr comment "$PR" --repo "$REPO" --body "Auto-merge refused: this PR touches operator-only paths in agents/control.json frozen_paths. The operator has to review it."
+      - name: Hold (expired, paused or draft)
+        if: steps.gate.outputs.verdict == 'expired' || steps.gate.outputs.verdict == 'paused' || steps.gate.outputs.verdict == 'draft'
+        run: gh pr merge "$PR" --repo "$REPO" --disable-auto || true

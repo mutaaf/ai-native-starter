@@ -1,0 +1,19 @@
+{
+  "_readme": "Operator control panel. Edit this file, on a phone if you like, to pause or steer the agents. Every agent reads it first. How often each one runs is set on its schedule, not here.",
+  "paused": false,
+  "expires": "2027-02-05",
+  "focus": "",
+  "agents": {
+    "scout": { "enabled": true, "max_new_tickets_per_run": 3, "ready_queue_cap": 10 },
+    "builder": { "enabled": true, "max_merges_per_day": 8 },
+    "critic": { "enabled": true, "max_new_tickets_per_run": 3 },
+    "keeper": { "enabled": true }
+  },
+  "frozen_paths": [
+    ".github/workflows/",
+    "agents/control.json",
+    "scripts/gate.sh",
+    "scripts/check-agents.mjs",
+    "test/gate.test.mjs"
+  ]
+}
